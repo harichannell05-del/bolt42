@@ -825,7 +825,40 @@ const ChatbotPage = () => {
     return crisisKeywords.some(keyword => lowerMessage.includes(keyword));
   };
 
+  const sendEmergencySOS = async () => {
+    if (!user?.emergencyContactEmail) {
+      return;
+    }
+
+    try {
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-emergency-email`;
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          emergencyContactEmail: user.emergencyContactEmail,
+          patientName: user.name,
+          patientEmail: user.email,
+          timestamp: new Date().toISOString(),
+        }),
+      });
+
+      if (response.ok) {
+        toast.success(`Emergency SOS sent to ${user.emergencyContactEmail}`);
+      }
+    } catch (error) {
+      console.error('Failed to send emergency SOS:', error);
+    }
+  };
+
   const showCrisisAlert = () => {
+    if (user?.emergencyContactEmail) {
+      sendEmergencySOS();
+    }
+
     const alertDiv = document.createElement('div');
     alertDiv.innerHTML = `
       <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px;">
@@ -837,24 +870,38 @@ const ChatbotPage = () => {
               </svg>
             </div>
             <h2 style="font-size: 24px; font-weight: bold; color: #1F2937; margin-bottom: 16px;">We're Here to Help</h2>
+            ${user?.emergencyContactEmail ? `
+            <div style="background: #DBEAFE; border: 2px solid #93C5FD; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+              <p style="color: #1E40AF; font-size: 14px; font-weight: 600;">
+                Emergency SOS sent to ${user.emergencyContactEmail}
+              </p>
+            </div>
+            ` : ''}
             <p style="color: #6B7280; margin-bottom: 24px; line-height: 1.6;">
               If you're experiencing thoughts of self-harm or suicide, please reach out for immediate support. You're not alone, and help is available 24/7.
             </p>
             <div style="background: #FEF2F2; border: 2px solid #FCA5A5; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
-              <h3 style="font-size: 18px; font-weight: 600; color: #DC2626; margin-bottom: 12px;">Emergency Helplines</h3>
+              <h3 style="font-size: 18px; font-weight: 600; color: #DC2626; margin-bottom: 12px;">Emergency Helplines (India)</h3>
               <div style="text-align: left;">
                 <div style="margin-bottom: 12px;">
-                  <p style="font-weight: 600; color: #1F2937; margin-bottom: 4px;">National Suicide Prevention Lifeline (US)</p>
-                  <a href="tel:988" style="font-size: 20px; font-weight: bold; color: #DC2626; text-decoration: none;">988</a>
+                  <p style="font-weight: 600; color: #1F2937; margin-bottom: 4px;">AASRA - Suicide Prevention Helpline</p>
+                  <a href="tel:9820466726" style="font-size: 20px; font-weight: bold; color: #DC2626; text-decoration: none;">91-9820466726</a>
                   <p style="font-size: 14px; color: #6B7280; margin-top: 4px;">24/7 Crisis Support</p>
                 </div>
                 <div style="margin-bottom: 12px;">
-                  <p style="font-weight: 600; color: #1F2937; margin-bottom: 4px;">Crisis Text Line</p>
-                  <p style="font-size: 16px; font-weight: bold; color: #DC2626;">Text HOME to 741741</p>
+                  <p style="font-weight: 600; color: #1F2937; margin-bottom: 4px;">Vandrevala Foundation Helpline</p>
+                  <a href="tel:18602662345" style="font-size: 20px; font-weight: bold; color: #DC2626; text-decoration: none;">1860-2662-345</a>
+                  <p style="font-size: 14px; color: #6B7280; margin-top: 4px;">Free, 24/7 Mental Health Support</p>
+                </div>
+                <div style="margin-bottom: 12px;">
+                  <p style="font-weight: 600; color: #1F2937; margin-bottom: 4px;">iCall - TISS Helpline</p>
+                  <a href="tel:9152987821" style="font-size: 20px; font-weight: bold; color: #DC2626; text-decoration: none;">91-9152987821</a>
+                  <p style="font-size: 14px; color: #6B7280; margin-top: 4px;">Mon-Sat, 8 AM - 10 PM</p>
                 </div>
                 <div>
-                  <p style="font-weight: 600; color: #1F2937; margin-bottom: 4px;">International Association for Suicide Prevention</p>
-                  <a href="https://www.iasp.info/resources/Crisis_Centres/" target="_blank" style="color: #3B82F6; text-decoration: underline; font-size: 14px;">Find help in your country</a>
+                  <p style="font-weight: 600; color: #1F2937; margin-bottom: 4px;">Fortis Stress Helpline</p>
+                  <a href="tel:8376804102" style="font-size: 20px; font-weight: bold; color: #DC2626; text-decoration: none;">8376-804-102</a>
+                  <p style="font-size: 14px; color: #6B7280; margin-top: 4px;">24/7 Crisis Support</p>
                 </div>
               </div>
             </div>
