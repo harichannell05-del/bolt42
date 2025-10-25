@@ -69,6 +69,7 @@ function BookingPage() {
   const [userAppointments, setUserAppointments] = useState<Appointment[]>([]);
   const [bookingStep, setBookingStep] = useState(1);
   const [availableTimeSlots, setAvailableTimeSlots] = useState<TimeSlot[]>([]);
+  const [pendingBookingId, setPendingBookingId] = useState<string | null>(null);
 
   const defaultTherapists: Therapist[] = [
     {
@@ -293,14 +294,14 @@ function BookingPage() {
     return timeSlots.sort((a, b) => a.time.localeCompare(b.time));
   };
   
-  // Check if a specific time slot is already booked
+  // Check if a specific time slot is already booked (only confirmed bookings)
   const isSlotBooked = (therapistId: string, date: string, time: string) => {
     const allBookings = JSON.parse(localStorage.getItem('mindcare_bookings') || '[]');
-    return allBookings.some((booking: any) => 
+    return allBookings.some((booking: any) =>
       (booking.therapistId === therapistId || booking.therapistName === therapistId) &&
       booking.date === date &&
       booking.time === time &&
-      booking.status !== 'cancelled'
+      booking.status === 'confirmed'
     );
   };
 
@@ -327,45 +328,8 @@ function BookingPage() {
       toast.error('Please select a therapist, date, and time');
       return;
     }
-    
-    // Convert 24-hour time back to 12-hour format for display
-    const convertTo12Hour = (time24: string) => {
-      const [hours, minutes] = time24.split(':');
-      const hour = parseInt(hours, 10);
-      const ampm = hour >= 12 ? 'PM' : 'AM';
-      const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-      return `${displayHour}:${minutes} ${ampm}`;
-    };
-    
-    const displayTime = convertTo12Hour(selectedTime);
 
-    // Create booking object and save to localStorage
-    const booking: Appointment = {
-      id: Date.now().toString(),
-      patientId: user?.id || '',
-      patientName: user?.name || '',
-      therapistId: selectedTherapist.id,
-      therapistName: selectedTherapist.name,
-      date: selectedDate,
-      time: selectedTime, // Keep 24-hour format for internal use
-      duration: 60,
-      amount: `$${selectedTherapist.hourlyRate}`,
-      status: 'pending_confirmation',
-      sessionType: 'video',
-      patientEmail: user?.email || '',
-      createdAt: new Date().toISOString(),
-      displayTime: displayTime // Add display time for UI
-    };
-
-    // Save to localStorage
-    const existingBookings = JSON.parse(localStorage.getItem('mindcare_bookings') || '[]');
-    existingBookings.push(booking);
-    localStorage.setItem('mindcare_bookings', JSON.stringify(existingBookings));
-
-    // Track session booking
-    trackSessionStart(booking);
-
-    toast.success(`Session booked with ${selectedTherapist.name} for ${selectedDate} at ${displayTime}!`);
+    // Just move to payment modal without creating booking yet
     setShowBookingModal(false);
     setShowPaymentModal(true);
   };
@@ -376,20 +340,42 @@ function BookingPage() {
       return;
     }
 
-    // Update booking status to confirmed after payment
-    const existingBookings = JSON.parse(localStorage.getItem('mindcare_bookings') || '[]');
-    const updatedBookings = existingBookings.map((booking: Appointment) => {
-      if (booking.therapistId === selectedTherapist.id && 
-          booking.date === selectedDate && 
-          booking.time === selectedTime &&
-          booking.patientId === user?.id) {
-        return { ...booking, status: 'confirmed' };
-      }
-      return booking;
-    });
-    localStorage.setItem('mindcare_bookings', JSON.stringify(updatedBookings));
+    // Convert 24-hour time back to 12-hour format for display
+    const convertTo12Hour = (time24: string) => {
+      const [hours, minutes] = time24.split(':');
+      const hour = parseInt(hours, 10);
+      const ampm = hour >= 12 ? 'PM' : 'AM';
+      const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+      return `${displayHour}:${minutes} ${ampm}`;
+    };
 
-    // Track payment
+    const displayTime = convertTo12Hour(selectedTime);
+
+    // Create booking object ONLY after payment
+    const booking: Appointment = {
+      id: Date.now().toString(),
+      patientId: user?.id || '',
+      patientName: user?.name || '',
+      therapistId: selectedTherapist.id,
+      therapistName: selectedTherapist.name,
+      date: selectedDate,
+      time: selectedTime,
+      duration: 60,
+      amount: `$${selectedTherapist.hourlyRate}`,
+      status: 'confirmed',
+      sessionType: 'video',
+      patientEmail: user?.email || '',
+      createdAt: new Date().toISOString(),
+      displayTime: displayTime
+    };
+
+    // Save confirmed booking to localStorage
+    const existingBookings = JSON.parse(localStorage.getItem('mindcare_bookings') || '[]');
+    existingBookings.push(booking);
+    localStorage.setItem('mindcare_bookings', JSON.stringify(existingBookings));
+
+    // Track session booking and payment
+    trackSessionStart(booking);
     trackPayment({
       amount: `$${selectedTherapist.hourlyRate}`,
       patientId: user?.id,
@@ -397,7 +383,7 @@ function BookingPage() {
       sessionType: 'video'
     });
 
-    toast.success('Payment successful! Your session is confirmed.');
+    toast.success(`Payment successful! Session confirmed with ${selectedTherapist.name} for ${selectedDate} at ${displayTime}!`);
     setShowPaymentModal(false);
     setSelectedTherapist(null);
     setSelectedDate('');
@@ -1148,7 +1134,14 @@ function BookingPage() {
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      onClick={() => setShowPaymentModal(false)}
+                      onClick={() => {
+                        setShowPaymentModal(false);
+                        setSelectedTherapist(null);
+                        setSelectedDate('');
+                        setSelectedTime('');
+                        setBookingStep(1);
+                        toast.info('Booking cancelled');
+                      }}
                       className={`flex-1 py-3 rounded-xl font-medium transition-all duration-200 ${
                         theme === 'dark'
                           ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
